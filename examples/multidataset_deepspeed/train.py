@@ -62,6 +62,9 @@ if __name__ == "__main__":
     parser.add_argument("--hidden_dim", type=int, help="number of channel per layer", default=None)
     parser.add_argument("--num_conv_layers", type=int, help="number of layers", default=None)
     parser.add_argument("--model_debug", action="store_true", help="print model size only", default=False)
+    parser.add_argument("--full_test", action="store_true", help="ignore all num_samples, using full test set", default=False)
+    parser.add_argument("--conv_checkpointing", action="store_true", help="enable checkpointing for conv layers", default=False)
+    parser.add_argument("--zero_opt", action="store_true", help="enable zero optimizer with stage 1", default=False)
     parser.add_argument("--everyone", action="store_true", help="gptimer")
     parser.add_argument("--modelname", help="model name")
     parser.add_argument(
@@ -134,6 +137,9 @@ if __name__ == "__main__":
 
     if args.num_conv_layers is not None:
         config["NeuralNetwork"]["Architecture"]["num_conv_layers"] = args.num_conv_layers
+    
+    if args.conv_checkpointing:
+        config["NeuralNetwork"]["Training"]["conv_checkpointing"] = True
 
     ##################################################################################################################
     # Always initialize for multi-rank training.
@@ -311,7 +317,9 @@ if __name__ == "__main__":
         for dataset in [testset]:
             rx = list(nsplit(range(len(dataset)), local_comm_size))[local_comm_rank]
             num_samples = len(rx)
-            if args.num_test_samples is not None:
+            if args.full_test:
+                pass
+            elif args.num_test_samples is not None:
                 num_samples = args.num_test_samples
             elif args.num_samples is not None:
                 num_samples = args.num_samples
@@ -399,6 +407,11 @@ if __name__ == "__main__":
 
     # create temporary deepspeed configuration
     ds_config = parse_deepspeed_config(config)
+
+    if args.zero_opt:
+        ds_config["zero_optimization"] = {
+        "stage": 1
+    }
 
     # create deepspeed model
     model, optimizer, _, _ = deepspeed.initialize(
