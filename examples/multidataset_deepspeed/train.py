@@ -55,6 +55,9 @@ if __name__ == "__main__":
     parser.add_argument("--log", help="log name")
     parser.add_argument("--num_epoch", type=int, help="num_epoch", default=None)
     parser.add_argument("--batch_size", type=int, help="batch_size", default=None)
+    parser.add_argument("--hidden_dim", type=int, help="number of channel per layer", default=None)
+    parser.add_argument("--num_conv_layers", type=int, help="number of layers", default=None)
+    parser.add_argument("--model_debug", action="store_true", help="print model size only", default=False)
     parser.add_argument("--everyone", action="store_true", help="gptimer")
     parser.add_argument("--modelname", help="model name")
     parser.add_argument(
@@ -121,6 +124,12 @@ if __name__ == "__main__":
 
     if args.num_epoch is not None:
         config["NeuralNetwork"]["Training"]["num_epoch"] = args.num_epoch
+
+    if args.hidden_dim is not None:
+        config["NeuralNetwork"]["Architecture"]["hidden_dim"] = args.hidden_dim
+
+    if args.num_conv_layers is not None:
+        config["NeuralNetwork"]["Architecture"]["num_conv_layers"] = args.num_conv_layers
 
     ##################################################################################################################
     # Always initialize for multi-rank training.
@@ -365,6 +374,20 @@ if __name__ == "__main__":
     # Print details of neural network architecture
     print_model(model)
 
+    if args.model_debug:
+        for num_conv_layers in [4,5,6]:
+            print("==== num_conv_layers: ", num_conv_layers)
+            config["NeuralNetwork"]["Architecture"]["num_conv_layers"] = num_conv_layers
+            model = hydragnn.models.create_model_config(
+                config=config["NeuralNetwork"],
+                verbosity=verbosity,
+            )
+            model = hydragnn.utils.distributed.get_distributed_model(model, verbosity)
+
+            # Print details of neural network architecture
+            print_model(model)
+        exit()
+
     learning_rate = config["NeuralNetwork"]["Training"]["Optimizer"]["learning_rate"]
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -402,4 +425,5 @@ if __name__ == "__main__":
             gp.pr_file(os.path.join("logs", log_name, "gp_timing.p%d" % rank))
         gp.pr_summary_file(os.path.join("logs", log_name, "gp_timing.summary"))
         gp.finalize()
-    sys.exit(0)
+
+    os._exit(0) # force quit
