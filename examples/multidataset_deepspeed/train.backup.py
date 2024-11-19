@@ -31,9 +31,6 @@ except ImportError:
 from scipy.interpolate import BSpline, make_interp_spline
 import adios2 as ad2
 
-import deepspeed
-from hydragnn.utils.input_config_parsing import parse_deepspeed_config
-from hydragnn.utils.distributed import get_deepspeed_init_args
 
 ## FIMME
 torch.backends.cudnn.enabled = False
@@ -137,7 +134,7 @@ if __name__ == "__main__":
 
     ##################################################################################################################
     # Always initialize for multi-rank training.
-    comm_size, rank = hydragnn.utils.distributed.setup_ddp(use_deepspeed=True)
+    comm_size, rank = hydragnn.utils.distributed.setup_ddp()
     ##################################################################################################################
 
     comm = MPI.COMM_WORLD
@@ -373,6 +370,7 @@ if __name__ == "__main__":
         config=config["NeuralNetwork"],
         verbosity=verbosity,
     )
+    model = hydragnn.utils.distributed.get_distributed_model(model, verbosity)
 
     # Print details of neural network architecture
     print_model(model)
@@ -397,20 +395,8 @@ if __name__ == "__main__":
         optimizer, mode="min", factor=0.5, patience=5, min_lr=0.00001
     )
 
-    # create temporary deepspeed configuration
-    ds_config = parse_deepspeed_config(config)
-
-    # create deepspeed model
-    model, optimizer, _, _ = deepspeed.initialize(
-        args=get_deepspeed_init_args(),
-        model=model,
-        config=ds_config,
-        dist_init_required=False,
-        optimizer=optimizer, # optimizer is managed by deepspeed
-    )  # scheduler is not managed by deepspeed because it is per-epoch instead of per-step
-
     hydragnn.utils.model.load_existing_model_config(
-        model, config["NeuralNetwork"]["Training"], use_deepspeed=True
+        model, config["NeuralNetwork"]["Training"], optimizer=optimizer
     )
 
     ##################################################################################################################
@@ -427,10 +413,9 @@ if __name__ == "__main__":
         log_name,
         verbosity,
         create_plots=False,
-        use_deepspeed=True,
     )
 
-    hydragnn.utils.model.save_model(model, optimizer, log_name, use_deepspeed=True) # optimizer is managed by deepspeed model
+    hydragnn.utils.model.save_model(model, optimizer, log_name)
     hydragnn.utils.profiling_and_tracing.print_timers(verbosity)
 
     if tr.has("GPTLTracer"):
