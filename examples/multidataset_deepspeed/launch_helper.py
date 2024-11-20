@@ -21,15 +21,17 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    dataset_size_list = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2]
-    # nodes_list        = [  4,   8,  16,  16,  32,  32,  32]
-    nodes_list        = [ 32,  32,  32,  32,  32,  32,  32]
+    # dataset_size_list = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2]
+    # nodes_list        = [ 32,  32,  32,  32,  32,  32,  32]
+
+    dataset_size_list = [0.1, 0.2, 0.4, 0.6]
+    nodes_list        = [  8,  16,  32,  32]
 
     for dataset_size, nodes in zip(dataset_size_list, nodes_list):
         job_id = submit_job(nodes, args.width, args.depth, dataset_size, args.zero, args.ckpt)
         print(job_id)
 
-    # nodes = 16
+    # nodes = 32
     # dataset_size = 0.4
     # for width in [800, 1100, 1700, 2500]:
     #     print("=== Width: ", width)
